@@ -1,0 +1,36 @@
+name: water_intake_tracker
+description: A simple app to track daily water intake with a reminder feature.
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=2.17.0 <3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  timezone: ^0.8.0
+  
+
+  provider: ^6.0.3
+  flutter_local_notifications: ^9.6.0
+  intl: ^0.17.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+  flutter_launcher_icons: ^0.10.0
+
+flutter:
+  assets:
+    - assets/images/glass_icon.png
+    - assets/images/water_drop_icon.png
+
+  uses-material-design: true
+
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/water_drop_icon.png"  # Specify the path to your icon image
+  remove_alpha_ios: true
