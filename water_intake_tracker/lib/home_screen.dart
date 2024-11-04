@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart'; // Import notifications package
+import 'package:water_intake_tracker/firebase_auth_service.dart'; // Import your FirebaseAuthService class
 import 'summary_screen.dart';
 import 'goal_screen.dart';
-import 'package:timezone/data/latest.dart' as tz;
-import 'package:timezone/timezone.dart' as tz;
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, required String userId});
 
   @override
   // ignore: library_private_types_in_public_api
@@ -14,96 +12,30 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final FirebaseAuthService _authService = FirebaseAuthService();
   final TextEditingController _waterController = TextEditingController();
   double totalIntake = 0.0;
   double glassSize = 250; // Each glass is 250 ml
   int totalGlassesGoal = 8; // Default goal is 8 glasses
   bool isCustomGoal = false;
   int _selectedIndex = 0; // Track selected bottom navigation item
-
-  // Declare notification plugin
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-      FlutterLocalNotificationsPlugin();
+  String? userId; // Store user ID
 
   @override
   void initState() {
     super.initState();
-    tz.initializeTimeZones(); // Initialize timezones
-    // Initialize local notifications
-    _initializeNotifications();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showWelcomeDialog();
     });
+    _getUserId(); // Fetch the user ID when the screen initializes
   }
 
-  // Initialize notification settings
-  void _initializeNotifications() async {
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-
-    const InitializationSettings initializationSettings =
-        InitializationSettings(android: initializationSettingsAndroid);
-
-    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
-  }
-
-  // Set reminder for 2 hours later
-  Future<void> _setReminder() async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
-        AndroidNotificationDetails(
-      'your_channel_id',
-      'your_channel_name',
-      channelDescription: 'your_channel_description',
-      importance: Importance.max,
-      priority: Priority.high,
-      showWhen: false,
-    );
-
-    const NotificationDetails platformChannelSpecifics =
-        NotificationDetails(android: androidPlatformChannelSpecifics);
-
-    await flutterLocalNotificationsPlugin.zonedSchedule(
-      0,
-      'Hydration Reminder',
-      'It\'s time to drink water!',
-      tz.TZDateTime.now(tz.local).add(const Duration(hours: 2)),
-      platformChannelSpecifics,
-      androidAllowWhileIdle: true,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents:
-          DateTimeComponents.time, // Schedule 2 hours later
-    );
-
-// Show reminder confirmation dialog
-    _showReminderDialog();
-  }
-
-// Function to show reminder dialog
-  void _showReminderDialog() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Reminder Set'),
-          content: const Text(
-              'Your hydration reminder has been set for 2 hours later!'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Close the dialog
-              },
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
-  
-    // ignore: use_build_context_synchronously
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Reminder set for 2 hours later!')),
-    );
+  void _getUserId() async {
+    // ignore: await_only_futures
+    String? id = await _authService.getCurrentUserId(); // Get user ID from FirebaseAuthService
+    setState(() {
+      userId = id; // Set the user ID
+    });
   }
 
   void _addWaterIntake() {
@@ -127,7 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _getWelcomeMessage() {
     return totalIntake == 0
-        ? 'Welcome! The goal is $totalGlassesGoal glasses of water today. Stay Hydrated! Stay Healthy!'
+        ? 'Welcome!  Stay Hydrated, Stay Healthy!'
         : 'Keep going! You\'re doing great!';
   }
 
@@ -147,7 +79,7 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context) {
         return AlertDialog(
           title: const Text('Welcome!'),
-          content: Text(_getWelcomeMessage()),
+          content: const Text('The goal is 8 glasses of water today. Stay Hydrated, Stay Healthy!'),
           actions: [
             TextButton(
               onPressed: () {
@@ -167,8 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context) {
         return AlertDialog(
           title: const Text('Reset Confirmation'),
-          content:
-              const Text('Are you sure you want to reset your water intake?'),
+          content: const Text('Are you sure you want to reset your water intake?'),
           actions: [
             TextButton(
               onPressed: () {
@@ -214,7 +145,7 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Congratulations!'),
+          title: const Text('Congratulations! 🎉'),
           content: const Text('You have reached your water intake goal!'),
           actions: [
             TextButton(
@@ -229,7 +160,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Handle Bottom Navigation Bar tap
   void _onItemTapped(int index) {
     if (index == _selectedIndex) {
       return; // No action if already on the selected screen
@@ -240,22 +170,34 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     if (index == 1) {
-      // Navigate to Summary Screen
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => SummaryScreen(totalIntake: totalIntake),
+          builder: (context) => SummaryScreen(totalIntake: totalIntake, userId: userId!), // Pass user ID
         ),
-      );
+      ).then((_) {
+        setState(() {
+          _selectedIndex = 0;
+        });
+      });
     } else if (index == 2) {
-      // Navigate to Goal Screen
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => GoalScreen(updateGoal: _updateGoal),
         ),
-      );
+      ).then((_) {
+        setState(() {
+          _selectedIndex = 0;
+        });
+      });
     }
+  }
+
+  Future<void> _signOut() async {
+    await _authService.logout();
+    // ignore: use_build_context_synchronously
+    Navigator.of(context).pushReplacementNamed('/login');
   }
 
   @override
@@ -264,130 +206,111 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Water Intake Tracker'),
         backgroundColor: Colors.lightBlueAccent,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _signOut,
+            tooltip: 'Sign Out',
+          ),
+        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Welcome message
-            Text(
-              _getWelcomeMessage(),
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.blueAccent,
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                _getWelcomeMessage(),
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blueAccent,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-
-            // Glass Icon next to Water input field
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _waterController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Enter water intake (ml)',
-                      border: OutlineInputBorder(),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _waterController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Enter water intake (ml)',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
                   ),
+                  const SizedBox(width: 10),
+                  Image.asset(
+                    'assets/images/glass_icon.png',
+                    height: 40,
+                    width: 40,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _addWaterIntake,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color.fromARGB(255, 124, 171, 253),
                 ),
-                const SizedBox(width: 10),
-                Image.asset(
-                  'assets/images/glass_icon.png',
-                  height: 40,
-                  width: 40,
+                child: const Text('Add Water Intake'),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Total Water Intake: ${totalIntake.toStringAsFixed(0)} ml',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.deepPurpleAccent,
                 ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            // Add water intake button
-            ElevatedButton(
-              onPressed: _addWaterIntake,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color.fromARGB(255, 124, 171, 253), // Button color
               ),
-              child: const Text('Add Water Intake'),
-            ),
-            const SizedBox(height: 20),
-
-            // Total water intake display
-            Text(
-              'Total Water Intake: ${totalIntake.toStringAsFixed(0)} ml',
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.deepPurpleAccent,
+              const SizedBox(height: 20),
+              Text(
+                'Glasses Consumed: ${(totalIntake / glassSize).floor()} of $totalGlassesGoal',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.orangeAccent,
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
-
-            // Display number of glasses consumed
-            Text(
-              'Glasses Consumed: ${(totalIntake / glassSize).floor()} of $totalGlassesGoal',
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w500,
-                color: Colors.orangeAccent,
+              const SizedBox(height: 20),
+              LinearProgressIndicator(
+                value: totalIntake / (totalGlassesGoal * glassSize),
+                backgroundColor: Colors.grey[300],
+                color: Colors.blueAccent,
               ),
-            ),
-            const SizedBox(height: 20),
-
-            // Linear Progress Bar
-            LinearProgressIndicator(
-              value: totalIntake / (totalGlassesGoal * glassSize),
-              backgroundColor: Colors.grey[300],
-              color: Colors.blueAccent,
-            ),
-            const SizedBox(height: 20),
-
-            // Congratulations or encouragement message
-            Text(
-              _getCongratulationsMessage(),
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-                color: totalIntake >= totalGlassesGoal * glassSize
-                    ? Colors.green
-                    : Colors.orangeAccent,
+              const SizedBox(height: 20),
+              Text(
+                _getCongratulationsMessage(),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                  color: totalIntake >= totalGlassesGoal * glassSize
+                      ? Colors.green
+                      : Colors.orangeAccent,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-
-
-         // Buttons in a row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-            // Reset button
-            ElevatedButton(
-              onPressed: _resetIntake,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color.fromARGB(255, 255, 110, 110), // Button color
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton(
+                    onPressed: _resetIntake,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color.fromARGB(255, 255, 110, 110),
+                    ),
+                    child: const Text('Reset Intake'),
+                  ),
+                ],
               ),
-              child: const Text('Reset Intake'),
-            ),
-            
-            // Set Reminder button
-            ElevatedButton(
-              onPressed: _setReminder,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.greenAccent, // Button color
-              ),
-              child: const Text('Set Reminder'),
-            ),
-          ],
+            ],
+          ),
         ),
-      ],
-    ),
-  ),
-
-
+      ),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
@@ -399,12 +322,12 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Summary',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.track_changes),
-            label: 'Goal',
+            icon: Icon(Icons.dashboard),
+            label: 'Goals',
           ),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blueAccent,
+        selectedItemColor: Colors.amber[800],
         onTap: _onItemTapped,
       ),
     );

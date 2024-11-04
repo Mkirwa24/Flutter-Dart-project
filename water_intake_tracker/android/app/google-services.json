@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "597278146739",
+    "project_id": "water-intake-tracker-327a7",
+    "storage_bucket": "water-intake-tracker-327a7.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:597278146739:android:dbd67acba2e33fb191f0c6",
+        "android_client_info": {
+          "package_name": "com.example.water_intake_tracker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB9cy3t6M0UcG_BXEZHTSevcy99J52QOpE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
