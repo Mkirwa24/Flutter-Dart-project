@@ -58,7 +58,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
             children: [
               TextFormField(
                 controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  icon: Icon(Icons.email), // Email icon
+                ),
                 keyboardType: TextInputType.emailAddress,
                 validator: (value) {
                   if (value == null || value.isEmpty) return 'Please enter your email';
@@ -69,7 +72,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _passwordController,
-                decoration: const InputDecoration(labelText: 'Password'),
+                decoration: const InputDecoration(
+                  labelText: 'Password',
+                  icon: Icon(Icons.lock), // Password icon
+                ),
                 obscureText: true,
                 validator: (value) {
                   if (value == null || value.isEmpty) return 'Please enter your password';
@@ -80,7 +86,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _confirmPasswordController,
-                decoration: const InputDecoration(labelText: 'Confirm Password'),
+                decoration: const InputDecoration(
+                  labelText: 'Confirm Password',
+                  icon: Icon(Icons.lock_outline), // Confirm Password icon
+                ),
                 obscureText: true,
                 validator: (value) {
                   if (value == null || value != _passwordController.text) return 'Passwords do not match';

@@ -39,10 +39,11 @@ void main() {
 
   // Test for SummaryScreen to verify summary of total intake
   testWidgets('SummaryScreen displays correct total intake summary', (WidgetTester tester) async {
-    await tester.pumpWidget(const MaterialApp(home: SummaryScreen(totalIntake: 2000, userId: '',)));
+    await tester.pumpWidget(const MaterialApp(home: SummaryScreen(totalIntake: 2000, userId: '', goalIntake: 2500,)));
 
     // Verify the summary message for 2000 ml intake (8 glasses is the goal)
     expect(find.text('Total Water Intake: 2000 ml'), findsOneWidget);
+    expect(find.text('Goal Intake: 2500 mL'), findsOneWidget);
     expect(find.text('Great job!'), findsOneWidget);
   });
 }

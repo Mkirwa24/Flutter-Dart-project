@@ -20,27 +20,44 @@ class _HomeScreenState extends State<HomeScreen> {
   bool isCustomGoal = false;
   int _selectedIndex = 0; // Track selected bottom navigation item
   String? userId; // Store user ID
-
+  final PageController _pageController = PageController();
+  bool _isHomeScreen = true; // Variable to track if HomeScreen is active
+  
+  
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _showWelcomeDialog();
+      if (_isHomeScreen) {
+        _showWelcomeDialog();
+      }
     });
     _getUserId(); // Fetch the user ID when the screen initializes
   }
 
   void _getUserId() async {
-    // ignore: await_only_futures
-    String? id = await _authService.getCurrentUserId(); // Get user ID from FirebaseAuthService
+    String? id = _authService
+        .getCurrentUserId(); // Get user ID from FirebaseAuthService
     setState(() {
       userId = id; // Set the user ID
     });
   }
 
   void _addWaterIntake() {
+    final intake = double.tryParse(_waterController.text) ?? 0;
+
+    if (intake < glassSize) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error: A glass should be at least 250 ml.'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
     setState(() {
-      totalIntake += double.tryParse(_waterController.text) ?? 0;
+      totalIntake += intake;
       _waterController.clear();
       _checkGoalStatus();
     });
@@ -59,7 +76,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _getWelcomeMessage() {
     return totalIntake == 0
-        ? 'Welcome!  Stay Hydrated, Stay Healthy!'
+        ? 'Welcome! Stay Hydrated, Stay Healthy!'
         : 'Keep going! You\'re doing great!';
   }
 
@@ -74,51 +91,59 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showWelcomeDialog() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Welcome!'),
-          content: const Text('The goal is 8 glasses of water today. Stay Hydrated, Stay Healthy!'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
+    // Check if the widget is mounted
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('Welcome!'),
+            content: const Text(
+                'The goal is 8 glasses of water today. Stay Hydrated, Stay Healthy!'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text('OK'),
+              ),
+            ],
+          );
+        },
+      );
+    }
   }
 
   void _showResetConfirmation() {
+    // Ensure the widget is mounted before showing the dialog
+  if (mounted) {
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           title: const Text('Reset Confirmation'),
-          content: const Text('Are you sure you want to reset your water intake?'),
+          content:
+              const Text('Are you sure you want to reset your water intake?'),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Close the dialog
+                Navigator.of(context).pop();
               },
               child: const Text('Cancel'),
             ),
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Close the dialog
+                Navigator.of(context).pop();
                 _resetIntakeConfirmed();
               },
-              child: const Text('Reset'),
+              child: const Text('Reset Water Intake'),
             ),
           ],
         );
       },
     );
   }
+}
 
   void _resetIntakeConfirmed() {
     setState(() {
@@ -141,57 +166,34 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showCongratulationsMessage() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Congratulations! 🎉'),
-          content: const Text('You have reached your water intake goal!'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
+    // Check if the widget is mounted
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('Congratulations! 🎉'),
+            content: const Text('You have reached your water intake goal!'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text('OK'),
+              ),
+            ],
+          );
+        },
+      );
+    }
   }
 
   void _onItemTapped(int index) {
-    if (index == _selectedIndex) {
-      return; // No action if already on the selected screen
-    }
-
     setState(() {
       _selectedIndex = index;
+      _isHomeScreen = index == 0; // Set to true when HomeScreen is selected
     });
-
-    if (index == 1) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => SummaryScreen(totalIntake: totalIntake, userId: userId!), // Pass user ID
-        ),
-      ).then((_) {
-        setState(() {
-          _selectedIndex = 0;
-        });
-      });
-    } else if (index == 2) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => GoalScreen(updateGoal: _updateGoal),
-        ),
-      ).then((_) {
-        setState(() {
-          _selectedIndex = 0;
-        });
-      });
-    }
+    _pageController.jumpToPage(index); // Switch pages without animation
   }
 
   Future<void> _signOut() async {
@@ -203,132 +205,147 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Water Intake Tracker'),
+      appBar: _isHomeScreen // Only show AppBar on the Home Screen
+        ? AppBar(
+        automaticallyImplyLeading: false,
+        title: const Row(
+          children: [
+            Icon(Icons.water_drop, color: Colors.white),
+            SizedBox(width: 8),
+            Text('Water Intake Tracker'),
+          ],
+        ),
         backgroundColor: Colors.lightBlueAccent,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
+          TextButton.icon(
+            icon: const Icon(Icons.logout, color: Colors.white),
+            label:
+                const Text('Sign Out', style: TextStyle(color: Colors.white)),
             onPressed: _signOut,
-            tooltip: 'Sign Out',
           ),
         ],
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                _getWelcomeMessage(),
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blueAccent,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _waterController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Enter water intake (ml)',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Image.asset(
-                    'assets/images/glass_icon.png',
-                    height: 40,
-                    width: 40,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _addWaterIntake,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color.fromARGB(255, 124, 171, 253),
-                ),
-                child: const Text('Add Water Intake'),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Total Water Intake: ${totalIntake.toStringAsFixed(0)} ml',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.deepPurpleAccent,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Glasses Consumed: ${(totalIntake / glassSize).floor()} of $totalGlassesGoal',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.orangeAccent,
-                ),
-              ),
-              const SizedBox(height: 20),
-              LinearProgressIndicator(
-                value: totalIntake / (totalGlassesGoal * glassSize),
-                backgroundColor: Colors.grey[300],
-                color: Colors.blueAccent,
-              ),
-              const SizedBox(height: 20),
-              Text(
-                _getCongratulationsMessage(),
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                  color: totalIntake >= totalGlassesGoal * glassSize
-                      ? Colors.green
-                      : Colors.orangeAccent,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  ElevatedButton(
-                    onPressed: _resetIntake,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color.fromARGB(255, 255, 110, 110),
-                    ),
-                    child: const Text('Reset Intake'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
+      )
+      : null, // If not on the home screen, don't display AppBar
+      body: PageView(
+        controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(),
+        children: [
+          _buildHomeContent(), // Home screen content
+          SummaryScreen(
+            totalIntake: totalIntake,
+            userId: userId ?? '',
+            goalIntake: totalGlassesGoal * glassSize,
+          ), // Summary screen
+          GoalScreen(updateGoal: _updateGoal), // Set Goal screen
+        ],
       ),
       bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+        items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
             label: 'Home',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.summarize),
+            icon: Icon(Icons.timeline),
             label: 'Summary',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard),
-            label: 'Goals',
+            icon: Icon(Icons.star),
+            label: 'Set Goal',
           ),
         ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.amber[800],
-        onTap: _onItemTapped,
+        selectedItemColor: Colors.blueAccent,
+        unselectedItemColor: Colors.grey,
+      ),
+    );
+  }
+
+  Widget _buildHomeContent() {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              _getWelcomeMessage(),
+              style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blueAccent),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _waterController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Enter water intake (ml)',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Image.asset('assets/images/glass_icon.png',
+                    height: 40, width: 40),
+              ],
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _addWaterIntake,
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color.fromARGB(255, 124, 171, 253)),
+              child: const Text('Add Water Intake'),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Total Water Intake: ${totalIntake.toStringAsFixed(0)} ml',
+              style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.deepPurpleAccent),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Glasses Consumed: ${(totalIntake / glassSize).floor()} of $totalGlassesGoal',
+              style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.orangeAccent),
+            ),
+            const SizedBox(height: 20),
+            LinearProgressIndicator(
+              value: totalIntake / (totalGlassesGoal * glassSize),
+              backgroundColor: Colors.grey[300],
+              color: Colors.lightBlueAccent,
+              minHeight: 10,
+            ),
+            const SizedBox(height: 20),
+            Text(
+              _getCongratulationsMessage(),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+                color: totalIntake >= totalGlassesGoal * glassSize
+                    ? Colors.green
+                    : Colors.redAccent,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _resetIntake,
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orangeAccent),
+              child: const Text('Reset Intake'),
+            ),
+          ],
+        ),
       ),
     );
   }

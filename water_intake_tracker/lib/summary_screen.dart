@@ -1,36 +1,140 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // Import Firestore
-// Ensure you have your FirebaseAuthService imported
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart'; // For date formatting
 
 class SummaryScreen extends StatelessWidget {
   final double totalIntake;
-  final String userId; // Pass the user ID to fetch records for that user
+  final double goalIntake; // The user's goal intake
+  final String userId;
 
-  const SummaryScreen({super.key, required this.totalIntake, required this.userId});
+  const SummaryScreen({
+    Key? key,
+    required this.totalIntake,
+    required this.userId,
+    double? goalIntake,
+  })  : goalIntake = goalIntake ?? 2000, // Default to 2000 if null
+        super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    const double glassSize = 250; // Glass size is 250 ml
+    const double glassSize = 250;
 
-    // Function to save daily intake to Firestore
+    // Function to save daily intake to Firestore with duplicate check
     void saveDailyIntake() async {
+      // Check if the user has met their goal
+      if (totalIntake < goalIntake) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!context.mounted) return;
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Goal Not Met'),
+              content: Text(
+                  'Please reach your goal of ${goalIntake.toStringAsFixed(0)} ml before saving.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        });
+        return;
+      }
+
+      await Future.delayed(const Duration(seconds: 1));
+
       try {
+        // Check if an entry already exists for today
+        final today = DateTime.now();
+        final existingIntake = await FirebaseFirestore.instance
+            .collection('waterIntake')
+            .where('userId', isEqualTo: userId)
+            .where('date',
+                isGreaterThanOrEqualTo: DateTime(today.year, today.month, today.day),
+                isLessThan: DateTime(today.year, today.month, today.day + 1))
+            .get();
+
+        if (existingIntake.docs.isNotEmpty) {
+          // Show duplicate entry message if intake has already been saved today
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!context.mounted) return;
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Intake Already Saved'),
+                content: const Text('Intake for today has already been saved. '),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+          });
+          return;
+        }
+
+        // Save intake if no duplicate found
         await FirebaseFirestore.instance.collection('waterIntake').add({
           'userId': userId,
           'totalIntake': totalIntake,
           'date': DateTime.now(),
         });
-        // ignore: use_build_context_synchronously
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Daily intake saved successfully!')),
-        );
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!context.mounted) return;
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Success'),
+              content: Text(
+                  'Congratulations! You have reached your daily goal of ${goalIntake.toStringAsFixed(0)} ml.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        });
       } catch (e) {
-        // ignore: use_build_context_synchronously
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving intake: $e')),
-        );
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error saving intake: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        });
       }
     }
+
+        // Show reminder dialog after the widget is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) {
+        return; // Check if the widget is still in the widget tree
+      }
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Reminder'),
+          content: const Text('Remember to save your daily intake!, Click the save intake icon once and view history'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    });
+
+
 
     return Scaffold(
       appBar: AppBar(
@@ -41,8 +145,43 @@ class SummaryScreen extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Column(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.save,
+                            size: 40, color: Colors.lightGreen),
+                        onPressed: saveDailyIntake,
+                      ),
+                      const Text('Save Intake',
+                          style: TextStyle(fontSize: 16)),
+                    ],
+                  ),
+                  Column(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.history,
+                            size: 40, color: Colors.blueAccent),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  IntakeHistoryScreen(userId: userId),
+                            ),
+                          );
+                        },
+                      ),
+                      const Text('View History',
+                          style: TextStyle(fontSize: 16)),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 30),
               Image.asset(
                 'assets/images/glass_icon.png',
                 height: 80,
@@ -75,40 +214,12 @@ class SummaryScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () {
-                  saveDailyIntake(); // Call function to save daily intake
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.lightGreenAccent,
+              Text(
+                'Goal Intake: ${goalIntake.toStringAsFixed(0)} ml',
+                style: const TextStyle(
+                  fontSize: 20,
+                  color: Colors.redAccent,
                 ),
-                child: const Text('Save Daily Intake'),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context); // Navigate back to the HomeScreen
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.lightGreenAccent,
-                ),
-                child: const Text('Back to Home'),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () {
-                  // Navigate to a new screen that shows the history
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => IntakeHistoryScreen(userId: userId),
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
-                ),
-                child: const Text('View History'),
               ),
             ],
           ),
@@ -118,7 +229,6 @@ class SummaryScreen extends StatelessWidget {
   }
 }
 
-// New screen to display the intake history
 class IntakeHistoryScreen extends StatelessWidget {
   final String userId;
 
@@ -147,9 +257,13 @@ class IntakeHistoryScreen extends StatelessWidget {
           return ListView(
             children: snapshot.data!.docs.map((doc) {
               var data = doc.data() as Map<String, dynamic>;
+              DateTime date = (data['date'] as Timestamp).toDate();
+              String formattedDate = DateFormat('MMM dd, yyyy – HH:mm')
+                  .format(date); // Format the date
+
               return ListTile(
                 title: Text('Intake: ${data['totalIntake']} ml'),
-                subtitle: Text('Date: ${data['date'].toDate()}'),
+                subtitle: Text('Date: $formattedDate'),
               );
             }).toList(),
           );
@@ -158,4 +272,3 @@ class IntakeHistoryScreen extends StatelessWidget {
     );
   }
 }
-

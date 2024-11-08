@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 // ignore: unused_import
@@ -26,7 +27,6 @@ class _GoalScreenState extends State<GoalScreen> {
   }
 
   void _initializeNotifications() async {
-    // Initialization settings for Android and iOS
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
     const DarwinInitializationSettings initializationSettingsIOS = DarwinInitializationSettings(
@@ -44,7 +44,6 @@ class _GoalScreenState extends State<GoalScreen> {
   }
 
   Future<void> _requestPermissions() async {
-    // Request permissions for notifications (especially important for iOS)
     await flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
         ?.requestPermissions(
@@ -55,7 +54,6 @@ class _GoalScreenState extends State<GoalScreen> {
   }
 
   Future<void> _scheduleIntervalReminder() async {
-    // Schedule repeating reminder based on user preference, to run in the background
     await flutterLocalNotificationsPlugin.periodicallyShow(
       0,
       'Water Reminder',
@@ -75,7 +73,6 @@ class _GoalScreenState extends State<GoalScreen> {
   }
 
   Future<void> _scheduleDailyGoalReminder(int goal) async {
-    // Schedule daily reminder to encourage reaching the goal
     await flutterLocalNotificationsPlugin.zonedSchedule(
       1,
       'Daily Water Goal Reminder',
@@ -97,7 +94,6 @@ class _GoalScreenState extends State<GoalScreen> {
   }
 
   tz.TZDateTime _nextInstanceOfEvening() {
-    // Set reminder time to 8:00 PM in local timezone
     final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
     tz.TZDateTime scheduledDate = tz.TZDateTime(tz.local, now.year, now.month, now.day, 20, 0, 0);
     if (scheduledDate.isBefore(now)) {
@@ -107,17 +103,45 @@ class _GoalScreenState extends State<GoalScreen> {
   }
 
   void _saveGoal() {
-    int newGoal = int.tryParse(_goalController.text) ?? 8;
+    final String goalText = _goalController.text.trim();
+
+    if (goalText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your custom goal in glasses and set a reminder.')),
+      );
+      return;
+    }
+
+    final int? newGoal = int.tryParse(goalText);
+
+    if (newGoal == null || newGoal <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid positive number for your goal.')),
+      );
+      return;
+    }
+
     widget.updateGoal(newGoal);
-
-    // Request permissions (especially for iOS)
     _requestPermissions();
-
-    // Schedule notifications for reminders
     _scheduleIntervalReminder();
     _scheduleDailyGoalReminder(newGoal);
 
-    Navigator.pop(context);
+    // Show the success dialog for 2 seconds
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return const AlertDialog(
+          title: Text('Success'),
+          content: Text('Goal saved and reminder set successfully!'),
+        );
+      },
+    );
+
+    // Close the dialog after 2 seconds and navigate back
+    Timer(const Duration(seconds: 2), () {
+      Navigator.of(context).pop(); // Dismiss the success dialog
+    });
   }
 
   @override
@@ -146,7 +170,7 @@ class _GoalScreenState extends State<GoalScreen> {
                 const Text('Remind me every:'),
                 DropdownButton<int>(
                   value: _selectedInterval,
-                  items: [3, 4, 5].map((int value) {
+                  items: [1, 2, 3, 4, 5].map((int value) {
                     return DropdownMenuItem<int>(
                       value: value,
                       child: Text('$value hours'),
