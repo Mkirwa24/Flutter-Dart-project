@@ -4,6 +4,7 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin" // Ensure this is applied last
 }
 
+
 android {
     namespace "com.dexterous.flutterlocalnotifications"
     namespace  "com.example.water_intake_tracker" // Ensure this is specified correctly

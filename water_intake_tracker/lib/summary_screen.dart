@@ -153,7 +153,7 @@ class SummaryScreen extends StatelessWidget {
                     children: [
                       IconButton(
                         icon: const Icon(Icons.save,
-                            size: 40, color: Colors.lightGreen),
+                            size: 40, color: Colors.lightBlue),
                         onPressed: saveDailyIntake,
                       ),
                       const Text('Save Intake',
